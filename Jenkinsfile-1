@@ -1,0 +1,55 @@
+pipeline {
+    agent {
+        node {
+            label 'dockerhost-build-server'
+        }
+    }
+
+    tools {
+        maven 'maven-3.9.6'
+    }
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('devops-dockerhub-token')
+    }
+
+    stages {
+        stage('Packaging') {
+            steps {
+                echo 'Packaging..'
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Copying jar file') {
+            steps {
+                echo 'Copying jar file..'
+                sh 'mv target/*.jar .'
+            }
+        }
+
+        stage('build image') {
+            steps {
+                sh 'docker build -t paesdevops/campaign-demo:v1 --label campaigndemo-server .'
+            }
+        }
+
+        stage('Docker Hub Login') {
+            steps {
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                sh 'docker push paesdevops/campaign-demo:v1'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout'
+        }
+    }
+}
